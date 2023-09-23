@@ -14,9 +14,26 @@ import sql_app.schemas as schemas
 from db import get_db, engine
 from sql_app.repositories import ItemRepo, StoreRepo
 
+from tracing import OTLPProvider
+from opentelemetry import trace
+from tracing import Trace
+import os
+from dotenv import load_dotenv
+from dependency_injector.wiring import inject
+
+load_dotenv()
+
+
 app = FastAPI(title="Sample FastAPI Application",
               description="Sample FastAPI Application with Swagger and Sqlalchemy",
               version="1.0.0", )
+
+   # init tracer
+
+# print("===============================traing backend url:"+os.getenv("TRACING_BACKEND_URL"))
+print(os.environ.get("TRACING_BACKEND_URL"))
+provider = OTLPProvider("fastapi", os.environ.get("TRACING_BACKEND_URL"))
+trace.set_tracer_provider(provider.provider)
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -36,7 +53,8 @@ async def add_process_time_header(request, call_next):
     response.headers["X-Process-Time"] = str(f'{process_time:0.4f} sec')
     return response
 
-
+@Trace()
+@inject
 @app.post('/items', tags=["Item"], response_model=schemas.Item, status_code=201)
 async def create_item(item_request: schemas.ItemCreate, db: Session = Depends(get_db)):
     """
@@ -49,7 +67,8 @@ async def create_item(item_request: schemas.ItemCreate, db: Session = Depends(ge
 
     return await ItemRepo.create(db=db, item=item_request)
 
-
+@Trace()
+@inject
 @app.get('/items', tags=["Item"], response_model=List[schemas.Item])
 def get_all_items(name: Optional[str] = None, db: Session = Depends(get_db)):
     """
@@ -63,7 +82,7 @@ def get_all_items(name: Optional[str] = None, db: Session = Depends(get_db)):
     else:
         return ItemRepo.fetch_all(db)
 
-
+@Trace()
 @app.get('/items/{item_id}', tags=["Item"], response_model=schemas.Item)
 def get_item(item_id: int, db: Session = Depends(get_db)):
     """
@@ -74,7 +93,8 @@ def get_item(item_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Item not found with the given ID")
     return db_item
 
-
+@Trace()
+@inject
 @app.delete('/items/{item_id}', tags=["Item"])
 async def delete_item(item_id: int, db: Session = Depends(get_db)):
     """
@@ -86,7 +106,8 @@ async def delete_item(item_id: int, db: Session = Depends(get_db)):
     await ItemRepo.delete(db, item_id)
     return "Item deleted successfully!"
 
-
+@Trace()
+@inject
 @app.put('/items/{item_id}', tags=["Item"], response_model=schemas.Item)
 async def update_item(item_id: int, item_request: schemas.Item, db: Session = Depends(get_db)):
     """
@@ -103,7 +124,8 @@ async def update_item(item_id: int, item_request: schemas.Item, db: Session = De
     else:
         raise HTTPException(status_code=400, detail="Item not found with the given ID")
 
-
+@Trace()
+@inject
 @app.post('/stores', tags=["Store"], response_model=schemas.Store, status_code=201)
 async def create_store(store_request: schemas.StoreCreate, db: Session = Depends(get_db)):
     """
@@ -116,7 +138,8 @@ async def create_store(store_request: schemas.StoreCreate, db: Session = Depends
 
     return await StoreRepo.create(db=db, store=store_request)
 
-
+@Trace()
+@inject
 @app.get('/stores', tags=["Store"], response_model=List[schemas.Store])
 def get_all_stores(name: Optional[str] = None, db: Session = Depends(get_db)):
     """
@@ -131,7 +154,8 @@ def get_all_stores(name: Optional[str] = None, db: Session = Depends(get_db)):
     else:
         return StoreRepo.fetch_all(db)
 
-
+@Trace()
+@inject
 @app.get('/stores/{store_id}', tags=["Store"], response_model=schemas.Store)
 def get_store(store_id: int, db: Session = Depends(get_db)):
     """
@@ -142,7 +166,8 @@ def get_store(store_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Store not found with the given ID")
     return db_store
 
-
+@Trace()
+@inject
 @app.delete('/stores/{store_id}', tags=["Store"])
 async def delete_store(store_id: int, db: Session = Depends(get_db)):
     """
@@ -154,7 +179,8 @@ async def delete_store(store_id: int, db: Session = Depends(get_db)):
     await StoreRepo.delete(db, store_id)
     return "Store deleted successfully!"
 
-
+@Trace()
+@inject
 @app.get("/universities/", tags=["University"])
 def get_universities() -> dict:
     """
@@ -166,7 +192,8 @@ def get_universities() -> dict:
     data.update(universities.get_all_universities_for_country("australia"))
     return data
 
-
+@Trace()
+@inject
 @app.get("/universities/async", tags=["University"])
 async def get_universities_async() -> dict:
     """
@@ -179,5 +206,5 @@ async def get_universities_async() -> dict:
     return data
 
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", port=9000, reload=True)
+# if __name__ == "__main__":
+#     uvicorn.run("main:app",host='0.0.0.0',port=9000, reload=True)

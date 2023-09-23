@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  fastapi:
+    build: ./
+    command: uvicorn main:app --host 0.0.0.0
+    env_file:
+      - ./.env.docker
+    ports:
+      - "8088:8000"
+  jaeger:
+    image: jaegertracing/opentelemetry-all-in-one:latest
+    ports:
+      - "16686:16686" # api
+      - "4317:4317" # grpc      
+
+networks:
+  default:
+    name: fastapi-otel
+    driver: bridge
